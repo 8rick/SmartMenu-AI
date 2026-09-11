@@ -8,3 +8,5 @@ target/ # ignored build output
 *.log
 .env
 .DS_Store
+
+# Additional ignores
