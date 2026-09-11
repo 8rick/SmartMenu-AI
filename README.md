@@ -66,3 +66,10 @@ Pull requests são sempre bem-vindos. Para mudanças maiores, por favor, abra um
 
 ---
 Desenvolvido com foco na sustentabilidade e eficiência gastronômica.
+
+## Technologies
+- Java 21
+- Spring Boot
+- Spring AI
+- JUnit 5
+
