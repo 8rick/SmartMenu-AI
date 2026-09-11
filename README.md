@@ -73,3 +73,5 @@ Desenvolvido com foco na sustentabilidade e eficiência gastronômica.
 - Spring AI
 - JUnit 5
 
+
+<!-- Configured via AI -->
