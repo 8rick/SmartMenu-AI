@@ -1,4 +1,4 @@
-﻿package com.smartmenu.ai.util;
+package com.smartmenu.ai.util;
 
 /**
  * Utilitario de validacao de nomes de usuario baseado no desafio
@@ -14,6 +14,7 @@
  *
  * <p>A implementacao utiliza uma unica expressao regular que encapsula todas as
  * quatro regras de forma atomica e eficiente.
+ * @author SmartMenu Team
  */
 public class UsernameValidator {
 
@@ -28,7 +29,8 @@ public class UsernameValidator {
      * </ul>
      *
      * <p><b>Atencao:</b> Exige no minimo 4 chars (1+2+1) e no maximo 25 (1+23+1).
-     */
+     * @author SmartMenu Team
+ */
     private static final String USERNAME_REGEX = "^[a-zA-Z][a-zA-Z0-9_]{2,23}[a-zA-Z0-9]$";
 
     // Construtor privado: classe utilitaria nao deve ser instanciada.
@@ -41,7 +43,8 @@ public class UsernameValidator {
      *
      * @param username o nome de usuario a ser validado; pode ser {@code null}.
      * @return {@code true} se o username for valido; {@code false} caso contrario.
-     */
+     * @author SmartMenu Team
+ */
     public static boolean isValid(String username) {
         if (username == null || username.isBlank()) {
             return false;
