@@ -1,4 +1,4 @@
-﻿package com.smartmenu.ai.util;
+package com.smartmenu.ai.util;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Suite completa de testes unitarios para {@link UsernameValidator}.
+ * Suite de testes unitarios automatizados para {@link UsernameValidator}.
  *
  * <p>Organizacao por blocos (@Nested) seguindo as seguintes estrategias:
  * <ol>
