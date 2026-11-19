@@ -3,6 +3,7 @@ package com.smartmenu.ai.service;
 import com.smartmenu.ai.dto.IngredientMapper;
 import com.smartmenu.ai.dto.IngredientRequest;
 import com.smartmenu.ai.dto.IngredientResponse;
+import com.smartmenu.ai.infra.exception.BusinessException;
 import com.smartmenu.ai.infra.exception.ResourceNotFoundException;
 import com.smartmenu.ai.model.Ingredient;
 import com.smartmenu.ai.repository.IngredientRepository;
@@ -11,8 +12,15 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+
 @Service
 public class IngredientService {
+
+    private static final int DEFAULT_EXPIRATION_WINDOW_DAYS = 7;
+    private static final int MAX_EXPIRATION_WINDOW_DAYS = 90;
 
     private final IngredientRepository ingredientRepository;
 
@@ -34,6 +42,32 @@ public class IngredientService {
     @Transactional(readOnly = true)
     public Page<IngredientResponse> findAll(Pageable pageable) {
         return ingredientRepository.findAll(pageable).map(IngredientMapper::toResponse);
+    }
+
+    /**
+     * Lists ingredients with available stock whose expiration date falls
+     * between today and the requested number of days, ordered by urgency.
+     */
+    @Transactional(readOnly = true)
+    public List<IngredientResponse> findExpiring(int withinDays) {
+        if (withinDays < 0 || withinDays > MAX_EXPIRATION_WINDOW_DAYS) {
+            throw new BusinessException(
+                    "O período deve estar entre 0 e " + MAX_EXPIRATION_WINDOW_DAYS + " dias"
+            );
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalDate lastDay = today.plusDays(withinDays);
+
+        return ingredientRepository
+                .findByExpirationDateBetweenAndQuantityGreaterThanOrderByExpirationDateAsc(
+                        today,
+                        lastDay,
+                        BigDecimal.ZERO
+                )
+                .stream()
+                .map(IngredientMapper::toResponse)
+                .toList();
     }
 
     @Transactional

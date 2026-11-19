@@ -16,8 +16,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/ingredients")
@@ -42,6 +45,17 @@ public class IngredientController {
     @GetMapping
     public PageResponse<IngredientResponse> findAll(@PageableDefault(size = 20) Pageable pageable) {
         return PageResponse.from(ingredientService.findAll(pageable));
+    }
+
+    /**
+     * Returns ingredients with stock expiring within the requested window.
+     * Defaults to 7 days; accepted range is 0..90 days.
+     */
+    @GetMapping("/expiring")
+    public List<IngredientResponse> findExpiring(
+            @RequestParam(defaultValue = "7") int withinDays
+    ) {
+        return ingredientService.findExpiring(withinDays);
     }
 
     @PutMapping("/{id}")
