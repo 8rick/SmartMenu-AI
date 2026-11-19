@@ -10,9 +10,9 @@ import com.smartmenu.ai.repository.IngredientRepository;
 import com.smartmenu.ai.repository.PromoDishRepository;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -22,10 +22,13 @@ import java.util.stream.Collectors;
 public class AiRecipeGeneratorService {
 
     static final String SYSTEM_PROMPT = """
-            Você é um chef especialista em marketing gastronômico. Vou te passar uma lista de ingredientes \
-            que estão sobrando no restaurante. Crie uma ideia de prato promocional usando esses itens, \
-            um nome chamativo e uma descrição curta e persuasiva para vender no iFood.
+            Você é um chef especialista em aproveitamento de alimentos e marketing gastronômico.
+            Crie uma sugestão de prato usando os ingredientes informados. Priorize o uso dos itens
+            com vencimento mais próximo. Não sugira ingredientes como disponíveis se não estiverem
+            na lista. O nome e a descrição devem ser claros, apetitosos e adequados para um cardápio.
             """;
+
+    private static final int MAX_AUTOMATIC_INGREDIENTS = 10;
 
     private final ChatClient chatClient;
     private final IngredientRepository ingredientRepository;
@@ -41,9 +44,45 @@ public class AiRecipeGeneratorService {
         this.promoDishRepository = promoDishRepository;
     }
 
-    @Transactional
+    /** Generates a dish from explicitly selected ingredients. */
     public PromoDishResponse generate(List<Long> ingredientIds) {
         List<Ingredient> ingredients = loadIngredients(ingredientIds);
+        return generateAndPersist(ingredients);
+    }
+
+    /**
+     * Automatically selects positive stock expiring soon. Selection is deterministic;
+     * the model only proposes the dish and marketing copy.
+     */
+    public PromoDishResponse generateFromExpiringStock(int withinDays, int limit) {
+        if (withinDays < 0 || withinDays > 90) {
+            throw new BusinessException("O período deve estar entre 0 e 90 dias");
+        }
+        if (limit < 1 || limit > MAX_AUTOMATIC_INGREDIENTS) {
+            throw new BusinessException(
+                    "A quantidade de ingredientes deve estar entre 1 e " + MAX_AUTOMATIC_INGREDIENTS
+            );
+        }
+
+        LocalDate today = LocalDate.now();
+        List<Ingredient> ingredients = ingredientRepository
+                .findByExpirationDateBetweenAndQuantityGreaterThanOrderByExpirationDateAsc(
+                        today, today.plusDays(withinDays), BigDecimal.ZERO
+                )
+                .stream()
+                .limit(limit)
+                .toList();
+
+        if (ingredients.isEmpty()) {
+            throw new BusinessException(
+                    "Nenhum ingrediente com estoque disponível vence dentro do período informado"
+            );
+        }
+
+        return generateAndPersist(ingredients);
+    }
+
+    private PromoDishResponse generateAndPersist(List<Ingredient> ingredients) {
         GeneratedPromoDish generated = askAi(ingredients);
         validateGenerated(generated);
 
@@ -53,10 +92,15 @@ public class AiRecipeGeneratorService {
                 generated.originalPrice(),
                 generated.promoPrice()
         );
+        // Keep the external LLM request outside a database transaction.
         return PromoDishMapper.toResponse(promoDishRepository.save(promoDish));
     }
 
     private List<Ingredient> loadIngredients(List<Long> ingredientIds) {
+        if (ingredientIds == null || ingredientIds.isEmpty()) {
+            throw new BusinessException("Informe ao menos um ingrediente");
+        }
+
         Set<Long> uniqueIds = new LinkedHashSet<>(ingredientIds);
         List<Ingredient> ingredients = ingredientRepository.findAllById(uniqueIds);
 
@@ -91,14 +135,21 @@ public class AiRecipeGeneratorService {
                 .collect(Collectors.joining("\n"));
 
         return """
-                Ingredientes disponíveis:
+                Ingredientes disponíveis no estoque:
                 %s
 
-                Responda apenas com um JSON contendo:
-                - name: nome chamativo do prato
-                - marketingDescription: descrição curta e persuasiva para o iFood
-                - originalPrice: preço original em reais (número decimal)
-                - promoPrice: preço promocional em reais, menor que o original (número decimal)
+                Crie uma sugestão usando prioritariamente os ingredientes que vencem primeiro.
+                Não invente ingredientes disponíveis. Se a combinação for inadequada, explique isso
+                na descrição e sugira uma preparação coerente.
+
+                Retorne os campos:
+                - name: nome do prato
+                - marketingDescription: descrição comercial curta
+                - originalPrice: preço original em reais
+                - promoPrice: preço promocional em reais, menor que o original
+
+                Os preços são sugestões do modelo, não representam custo real nem cálculo de margem.
+                Não afirme que foram calculados com base no custo dos ingredientes.
                 """.formatted(items);
     }
 
